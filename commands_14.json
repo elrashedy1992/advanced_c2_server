@@ -1,0 +1,8 @@
+[
+  {
+    "command": "alert(\"kaboos\");"
+  },
+  {
+    "command": "alert(\"kaboos\");"
+  }
+]

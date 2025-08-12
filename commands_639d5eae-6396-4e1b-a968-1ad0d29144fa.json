@@ -1,0 +1,10 @@
+[
+  {
+    "command": "alert(\"kaboos\");",
+    "source": "cmd"
+  },
+  {
+    "command": "alert(\"kaboos\");",
+    "source": "cmd"
+  }
+]

